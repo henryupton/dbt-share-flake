@@ -1,0 +1,23 @@
+name: 'dbt_share_flake'
+version: '1.0.0'
+config-version: 2
+
+profile: 'default'
+
+# This package manages Snowflake share grants after dbt runs
+# Define your shares as project variables
+# Example:
+# vars:
+#   snowflake_shares:
+#     partner_share:
+#       accounts:
+#         - "ABC12345"
+#       share_restrictions: false
+
+# Configure on-run-end hook to apply grants
+#on-run-end:
+#  - "{{ dbt_share_flake.entrypoint() }}"
+
+dispatch:
+  - macro_namespace: dbt_share_flake
+    search_order: ['dbt_share_flake', 'dbt']
