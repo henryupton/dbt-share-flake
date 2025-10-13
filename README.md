@@ -15,7 +15,7 @@ Add this package to your `packages.yml`:
 
 ```yaml
 packages:
-  - git: "https://github.com/your-org/dbt-share-flake.git"
+  - git: "https://github.com/henryupton/dbt-share-flake.git"
     revision: main
 ```
 
