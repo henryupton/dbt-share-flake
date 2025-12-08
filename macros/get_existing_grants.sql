@@ -26,8 +26,10 @@
       {% set granted_on = row['granted_on'] %}
       {% set name = row['name'] %}
 
-      {% set grant_key = dbt_share_flake.make_grant_key(name, privilege, granted_on) %}
-      {% do grants.update({grant_key: {'object': name, 'privilege': privilege, 'type': granted_on}}) %}
+      {# Normalize object type for grant/revoke syntax (e.g., ICEBERG TABLE -> TABLE) #}
+      {% set normalized_type = dbt_share_flake.normalize_object_type(granted_on) %}
+      {% set grant_key = dbt_share_flake.make_grant_key(name, privilege, normalized_type) %}
+      {% do grants.update({grant_key: {'object': name, 'privilege': privilege, 'type': normalized_type}}) %}
     {% endfor %}
 
     {{ return(grants) }}
