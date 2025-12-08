@@ -22,7 +22,7 @@
     {% set grants_to_revoke = {} %}
 
     {% for share_name in share_config.keys() %}
-      {% set existing_grants = get_existing_grants(share_name) %}
+      {% set existing_grants = dbt_share_flake.get_existing_grants(share_name) %}
       {% set desired_grants = desired_grants_by_share.get(share_name, {}) %}
 
       {# Find grants to revoke (in existing but not in desired) #}

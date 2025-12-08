@@ -26,7 +26,7 @@
       {% set granted_on = row['granted_on'] %}
       {% set name = row['name'] %}
 
-      {% set grant_key = make_grant_key(name, privilege, granted_on) %}
+      {% set grant_key = dbt_share_flake.make_grant_key(name, privilege, granted_on) %}
       {% do grants.update({grant_key: {'object': name, 'privilege': privilege, 'type': granted_on}}) %}
     {% endfor %}
 

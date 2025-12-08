@@ -33,7 +33,7 @@
       {% set check_privileges = var('snowflake_shares_check_privileges', true) %}
       {% if check_privileges %}
         {% set required_privileges = ['CREATE SHARE'] %}
-        {% set missing_privs = check_required_privileges(required_privileges) %}
+        {% set missing_privs = dbt_share_flake.check_required_privileges(required_privileges) %}
       {% endif %}
 
       {# Iterate through each share and process individually #}
@@ -41,9 +41,9 @@
         {{ log("Processing share: " ~ share_name, info=False) }}
 
         {# Step 1: Check if share exists, create if not #}
-        {% if not share_exists(share_name) %}
+        {% if not dbt_share_flake.share_exists(share_name) %}
           {{ log("Share " ~ share_name ~ " does not exist, creating...", info=True) }}
-          {% set create_sql = get_create_share_sql(share_name) %}
+          {% set create_sql = dbt_share_flake.get_create_share_sql(share_name) %}
           {% do run_query(create_sql) %}
           {{ log("Share " ~ share_name ~ " created successfully", info=True) }}
         {% endif %}
@@ -52,13 +52,13 @@
         {# Create a single-share config to pass to grant_to_shares #}
         {% set single_share_config = {share_name: share_settings} %}
         {{ log("Processing Snowflake share grants...", info=True) }}
-        {{ grant_to_shares(single_share_config) }}
+        {{ dbt_share_flake.grant_to_shares(single_share_config) }}
         {{ log("Snowflake share grants completed successfully!", info=True) }}
 
         {# Step 3: Update share configuration (accounts and share_restrictions) #}
         {# This must happen after grants because share needs a database first #}
-        {% set existing_config = get_share_configuration(share_name) %}
-        {{ update_share_configuration(share_name, share_settings, existing_config) }}
+        {% set existing_config = dbt_share_flake.get_share_configuration(share_name) %}
+        {{ dbt_share_flake.update_share_configuration(share_name, share_settings, existing_config) }}
       {% endfor %}
     {% else %}
       {{ log("No Snowflake shares configured in snowflake_shares variable", info=True) }}

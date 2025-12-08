@@ -19,10 +19,10 @@
     {% if share_config %}
 
       {# Step 1: Get desired grants from dbt graph #}
-      {% set desired_grants = get_desired_grants(share_config) %}
+      {% set desired_grants = dbt_share_flake.get_desired_grants(share_config) %}
 
       {# Step 2: Compare with existing grants to find diffs #}
-      {% set grant_diffs = compare_grants(share_config, desired_grants) %}
+      {% set grant_diffs = dbt_share_flake.compare_grants(share_config, desired_grants) %}
 
       {# Step 3: Revoke outdated grants #}
       {% set total_revokes = grant_diffs['to_revoke'].values() | sum(start=[]) | length %}
@@ -31,7 +31,7 @@
         {% for share_name, revoke_list in grant_diffs['to_revoke'].items() %}
           {% for grant_info in revoke_list %}
             {% set revoke_counter.value = revoke_counter.value + 1 %}
-            {% set revoke_sql = get_revoke_sql(grant_info['object'], share_name, grant_info['privilege'], grant_info['type']) %}
+            {% set revoke_sql = dbt_share_flake.get_revoke_sql(grant_info['object'], share_name, grant_info['privilege'], grant_info['type']) %}
             {{ log(revoke_counter.value ~ " of " ~ total_revokes ~ " START revoke " ~ grant_info['privilege'] | lower ~ " on " ~ grant_info['type'] | lower ~ " " ~ grant_info['object'] | lower ~ " from share " ~ share_name, info=True) }}
             {% do run_query(revoke_sql) %}
             {{ log(revoke_counter.value ~ " of " ~ total_revokes ~ " OK revoke " ~ grant_info['privilege'] | lower ~ " on " ~ grant_info['type'] | lower ~ " " ~ grant_info['object'] | lower ~ " from share " ~ share_name, info=True) }}
@@ -46,7 +46,7 @@
         {% for share_name, grants_to_add in grant_diffs['to_add'].items() %}
           {% for grant_info in grants_to_add %}
             {% set grant_counter.value = grant_counter.value + 1 %}
-            {% set grant_sql = get_grant_sql(grant_info['object'], share_name, grant_info['privilege'], grant_info['type']) %}
+            {% set grant_sql = dbt_share_flake.get_grant_sql(grant_info['object'], share_name, grant_info['privilege'], grant_info['type']) %}
             {{ log(grant_counter.value ~ " of " ~ total_grants ~ " START grant " ~ grant_info['privilege'] | lower ~ " on " ~ grant_info['type'] | lower ~ " " ~ grant_info['object'] | lower ~ " to share " ~ share_name, info=True) }}
             {% do run_query(grant_sql) %}
             {{ log(grant_counter.value ~ " of " ~ total_grants ~ " OK grant " ~ grant_info['privilege'] | lower ~ " on " ~ grant_info['type'] | lower ~ " " ~ grant_info['object'] | lower ~ " to share " ~ share_name, info=True) }}

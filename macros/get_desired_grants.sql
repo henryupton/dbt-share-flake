@@ -45,13 +45,13 @@
           {% for share_name in model_shares %}
             {% if share_name in share_config.keys() %}
               {# Add database grant #}
-              {% set db_grant_key = make_grant_key(database_name, 'USAGE', 'DATABASE') %}
+              {% set db_grant_key = dbt_share_flake.make_grant_key(database_name, 'USAGE', 'DATABASE') %}
               {% do desired_grants_by_share[share_name].update({
                 db_grant_key: {'object': database_name, 'privilege': 'USAGE', 'type': 'DATABASE'}
               }) %}
 
               {# Add schema grant #}
-              {% set schema_grant_key = make_grant_key(schema_fqn, 'USAGE', 'SCHEMA') %}
+              {% set schema_grant_key = dbt_share_flake.make_grant_key(schema_fqn, 'USAGE', 'SCHEMA') %}
               {% do desired_grants_by_share[share_name].update({
                 schema_grant_key: {'object': schema_fqn, 'privilege': 'USAGE', 'type': 'SCHEMA'}
               }) %}
@@ -63,7 +63,7 @@
               {% else %}
                 {% set object_type = 'TABLE' %}
               {% endif %}
-              {% set object_grant_key = make_grant_key(fqn, 'SELECT', object_type) %}
+              {% set object_grant_key = dbt_share_flake.make_grant_key(fqn, 'SELECT', object_type) %}
               {% do desired_grants_by_share[share_name].update({
                 object_grant_key: {'object': fqn, 'privilege': 'SELECT', 'type': object_type}
               }) %}
