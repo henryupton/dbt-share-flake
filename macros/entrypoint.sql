@@ -32,7 +32,12 @@
       {# Check for required privileges if enabled #}
       {% set check_privileges = var('snowflake_shares_check_privileges', true) %}
       {% if check_privileges %}
-        {% set required_privileges = ['CREATE SHARE'] %}
+        {% set required_privileges = [
+            'CREATE SHARE',
+            'IMPORT SHARE',
+            'MANAGE GRANTS',
+            'MANAGE SHARE TARGET'
+        ] %}
         {% set missing_privs = dbt_share_flake.check_required_privileges(required_privileges) %}
       {% endif %}
 
