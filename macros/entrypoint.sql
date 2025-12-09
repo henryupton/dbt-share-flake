@@ -62,8 +62,11 @@
 
         {# Step 3: Update share configuration (accounts and share_restrictions) #}
         {# This must happen after grants because share needs a database first #}
-        {% set existing_config = dbt_share_flake.get_share_configuration(share_name) %}
-        {{ dbt_share_flake.update_share_configuration(share_name, share_settings, existing_config) }}
+        {% set alter_share = var('snowflake_shares_alter_share', false) %}
+        {% if alter_share %}
+          {% set existing_config = dbt_share_flake.get_share_configuration(share_name) %}
+          {{ dbt_share_flake.update_share_configuration(share_name, share_settings, existing_config) }}
+        {% endif %}
       {% endfor %}
     {% else %}
       {{ log("No Snowflake shares configured in snowflake_shares variable", info=True) }}
