@@ -1,0 +1,48 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  # Exposed so the release workflow can gate on tests passing.
+  workflow_call:
+
+# A new push to a PR makes the in-flight run redundant.
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    name: Unit tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # dbt-core's supported floor and a current release.
+        python-version: ['3.9', '3.12']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: tests/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r tests/requirements.txt
+
+      # The harness compiles every macro in the package into a single Jinja module, so a
+      # macro with a syntax error fails this step rather than being silently skipped.
+      # That makes this a parse check as well as a test run.
+      - name: Run unit tests
+        run: pytest tests -q
