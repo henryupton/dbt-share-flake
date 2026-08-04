@@ -14,10 +14,11 @@
     Creates a SQL statement to revoke a specific privilege on an object from a share.
 #}
 {% macro get_revoke_sql(object_name, share_name, privilege, object_type) %}
+  {% set share = dbt_share_flake.validate_identifier(share_name, 'share name') %}
   {# Normalize object type for revoke syntax (e.g., ICEBERG TABLE -> TABLE) #}
   {% set normalized_type = dbt_share_flake.normalize_object_type(object_type) %}
   {% set revoke_sql %}
-    REVOKE {{ privilege }} ON {{ normalized_type }} {{ object_name }} FROM SHARE {{ share_name }}
+    REVOKE {{ privilege }} ON {{ normalized_type }} {{ object_name }} FROM SHARE {{ share }}
   {% endset %}
   {{ return(revoke_sql) }}
 {% endmacro %}

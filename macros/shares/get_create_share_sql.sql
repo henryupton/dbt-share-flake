@@ -12,8 +12,9 @@
     Uses IF NOT EXISTS to avoid errors if the share already exists.
 #}
 {% macro get_create_share_sql(share_name) %}
+  {% set name = dbt_share_flake.validate_identifier(share_name, 'share name') %}
   {% set create_sql %}
-    CREATE SHARE IF NOT EXISTS {{ share_name }}
+    CREATE SHARE IF NOT EXISTS {{ name }}
   {% endset %}
   {{ return(create_sql) }}
 {% endmacro %}
