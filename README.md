@@ -25,7 +25,7 @@ Add this package to your `packages.yml`:
 ```yaml
 packages:
   - git: "https://github.com/henryupton/dbt-share-flake.git"
-    revision: 0.0.6
+    revision: 0.0.7
 ```
 
 Then run:
