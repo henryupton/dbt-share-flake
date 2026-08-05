@@ -17,11 +17,17 @@ on:
       - main
 
 jobs:
+  # Gate the release on the unit tests. Without this, a broken commit is tagged and
+  # released anyway, and unpicking a bad release is worse than waiting a minute.
+  test:
+    uses: ./.github/workflows/test.yml
+
   increment-version:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

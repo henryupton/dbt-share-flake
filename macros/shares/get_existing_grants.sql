@@ -15,8 +15,9 @@
 #}
 {% macro get_existing_grants(share_name) %}
   {% if execute %}
+    {% set share = dbt_share_flake.validate_identifier(share_name, 'share name') %}
     {% set query %}
-      SHOW GRANTS TO SHARE {{ share_name }} ->> SELECT "privilege", "granted_on", "name" FROM $1 WHERE "privilege" IN ('USAGE', 'SELECT')
+      SHOW GRANTS TO SHARE {{ share }} ->> SELECT "privilege", "granted_on", "name" FROM $1 WHERE "privilege" IN ('USAGE', 'SELECT')
     {% endset %}
     {% set results = run_query(query) %}
     {% set grants = {} %}
@@ -24,12 +25,12 @@
     {% for row in results %}
       {% set privilege = row['privilege'] %}
       {% set granted_on = row['granted_on'] %}
-      {% set name = row['name'] %}
+      {% set object_name = row['name'] %}
 
       {# Normalize object type for grant/revoke syntax (e.g., ICEBERG TABLE -> TABLE) #}
       {% set normalized_type = dbt_share_flake.normalize_object_type(granted_on) %}
-      {% set grant_key = dbt_share_flake.make_grant_key(name, privilege, normalized_type) %}
-      {% do grants.update({grant_key: {'object': name, 'privilege': privilege, 'type': normalized_type}}) %}
+      {% set grant_key = dbt_share_flake.make_grant_key(object_name, privilege, normalized_type) %}
+      {% do grants.update({grant_key: {'object': object_name, 'privilege': privilege, 'type': normalized_type}}) %}
     {% endfor %}
 
     {{ return(grants) }}
