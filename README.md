@@ -326,12 +326,20 @@ These gate *subsequent* changes only. A share the package creates always receive
 configured `accounts` and `share_restrictions`, because a share with no accounts is
 unusable.
 
+With `alter_share: true`, the consumer list is genuinely declarative in both directions:
+removing an account from `accounts` revokes that consumer's access on the next run. The
+existing list is read from the `to` column of `SHOW SHARES`.
+
 ### A note on `share_restrictions`
 
 Snowflake only accepts `SHARE_RESTRICTIONS` as a modifier on `ALTER SHARE ... ADD
 ACCOUNTS`, not as a settable property of an existing share. The package emits it
 alongside every account addition. Changing it on a share whose account list is not
 changing warns instead, since there is no DDL that would do it.
+
+It is also not readable back: Snowflake reports it in neither `SHOW SHARES` nor
+`DESCRIBE SHARE`. The package therefore treats the current value of an existing share as
+unknown rather than assuming `false`, so it never reports a change it could not apply.
 
 ## Naming Rules
 

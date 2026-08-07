@@ -39,6 +39,25 @@ class TestDiffShareConfiguration:
         assert diff["share_restrictions"] is False
         assert diff["restrictions_changed"] is False
 
+    def test_treats_unknown_existing_restrictions_as_unchanged(self, pkg):
+        # get_share_configuration reports None for an existing share, because Snowflake
+        # does not expose the property. Calling that a change would warn on every run
+        # about something no run can resolve.
+        diff = pkg.diff_share_configuration(
+            {"accounts": ["A1"], "share_restrictions": True},
+            {"accounts": ["A1"], "share_restrictions": None},
+        )
+        assert diff["restrictions_changed"] is False
+
+    def test_removal_is_detected_against_a_real_existing_set(self, pkg):
+        # The regression this guards: existing accounts used to read as empty always, so
+        # dropping an account from configuration produced no removal at all.
+        diff = pkg.diff_share_configuration(
+            {"accounts": []},
+            {"accounts": ["IEDKCNV.UNWRAP_US_EAST_CRITICAL"]},
+        )
+        assert diff["accounts_to_remove"] == ["IEDKCNV.UNWRAP_US_EAST_CRITICAL"]
+
     def test_treats_missing_keys_as_empty(self, pkg):
         diff = pkg.diff_share_configuration({}, {})
         assert diff["accounts_to_add"] == [] and diff["accounts_to_remove"] == []
@@ -107,21 +126,82 @@ class TestUpdateShareConfiguration:
 
 
 class TestGetShareConfiguration:
-    def test_reads_accounts_and_restrictions(self, ctx, pkg):
-        ctx.on_query(r"DESCRIBE SHARE", [
-            {"kind": "ACCOUNT", "name": "ABC12345"},
-            {"kind": "ACCOUNT", "name": "XYZ99999"},
-            {"kind": "SHARE_RESTRICTIONS", "name": "true"},
-            {"kind": "DATABASE", "name": "ANALYTICS"},
+    """Accounts come from SHOW SHARES.
+
+    DESCRIBE SHARE lists the objects inside an outbound share, never its consumers, so
+    reading accounts from it always yielded an empty set — which re-added attached
+    accounts every run and made removal undetectable.
+    """
+
+    def test_reads_accounts_from_the_to_column(self, ctx, pkg):
+        ctx.on_query(r"SHOW SHARES", [
+            {"kind": "OUTBOUND", "name": "PARTNER_SHARE",
+             "to": "ABC12345,XYZ99999"},
         ])
         config = pkg.get_share_configuration("partner_share")
         assert config["accounts"] == ["ABC12345", "XYZ99999"]
-        assert config["share_restrictions"] is True
 
-    def test_defaults_when_nothing_is_shared(self, ctx, pkg):
-        ctx.on_query(r"DESCRIBE SHARE", [])
+    def test_does_not_read_describe_share(self, ctx, pkg):
+        ctx.on_query(r"SHOW SHARES", [
+            {"kind": "OUTBOUND", "name": "PARTNER_SHARE", "to": "ABC12345"},
+        ])
+        pkg.get_share_configuration("partner_share")
+        assert "DESCRIBE SHARE" not in ctx.sql
+
+    def test_handles_a_single_account(self, ctx, pkg):
+        ctx.on_query(r"SHOW SHARES", [
+            {"kind": "OUTBOUND", "name": "PARTNER_SHARE",
+             "to": "IEDKCNV.UNWRAP_US_EAST_CRITICAL"},
+        ])
         config = pkg.get_share_configuration("partner_share")
-        assert config == {"accounts": [], "share_restrictions": False}
+        assert config["accounts"] == ["IEDKCNV.UNWRAP_US_EAST_CRITICAL"]
+
+    def test_treats_no_consumers_as_empty(self, ctx, pkg):
+        ctx.on_query(r"SHOW SHARES", [
+            {"kind": "OUTBOUND", "name": "PARTNER_SHARE", "to": ""},
+        ])
+        assert pkg.get_share_configuration("partner_share")["accounts"] == []
+
+    def test_matches_an_account_qualified_name(self, ctx, pkg):
+        # SHOW SHARES may report an outbound share account-qualified, as share_exists
+        # already allows for.
+        ctx.on_query(r"SHOW SHARES", [
+            {"kind": "OUTBOUND", "name": "MYORG.MYACCT.PARTNER_SHARE", "to": "ABC12345"},
+        ])
+        assert pkg.get_share_configuration("partner_share")["accounts"] == ["ABC12345"]
+
+    def test_ignores_a_share_the_like_pattern_caught_by_wildcard(self, ctx, pkg):
+        # `_` is a single-character wildcard in LIKE, so a share name containing an
+        # underscore can match a sibling. Only the exact name may contribute accounts.
+        ctx.on_query(r"SHOW SHARES", [
+            {"kind": "OUTBOUND", "name": "PARTNERXSHARE", "to": "WRONG1"},
+            {"kind": "OUTBOUND", "name": "PARTNER_SHARE", "to": "RIGHT1"},
+        ])
+        assert pkg.get_share_configuration("partner_share")["accounts"] == ["RIGHT1"]
+
+    def test_ignores_an_inbound_share_of_the_same_name(self, ctx, pkg):
+        ctx.on_query(r"SHOW SHARES", [
+            {"kind": "INBOUND", "name": "PARTNER_SHARE", "to": ""},
+            {"kind": "OUTBOUND", "name": "PARTNER_SHARE", "to": "ABC12345"},
+        ])
+        assert pkg.get_share_configuration("partner_share")["accounts"] == ["ABC12345"]
+
+    def test_defaults_when_the_share_is_absent(self, ctx, pkg):
+        ctx.on_query(r"SHOW SHARES", [])
+        config = pkg.get_share_configuration("partner_share")
+        assert config == {"accounts": [], "share_restrictions": None}
+
+    def test_reports_share_restrictions_as_unknown(self, ctx, pkg):
+        # Snowflake exposes it in neither SHOW SHARES nor DESCRIBE SHARE.
+        ctx.on_query(r"SHOW SHARES", [
+            {"kind": "OUTBOUND", "name": "PARTNER_SHARE", "to": "ABC12345"},
+        ])
+        assert pkg.get_share_configuration("partner_share")["share_restrictions"] is None
+
+    def test_validates_the_share_name(self, ctx, pkg):
+        with pytest.raises(CompilerError):
+            pkg.get_share_configuration("x'; DROP SHARE y; --")
+        assert ctx.executed_sql == []
 
 
 class TestGrantAndRevokeSql:
