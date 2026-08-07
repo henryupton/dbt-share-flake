@@ -20,12 +20,17 @@
 
     Comparison is case-insensitive because Snowflake reports account identifiers in
     upper case regardless of how they were written in configuration.
+
+    An existing share_restrictions of none means Snowflake did not report one, which is
+    the normal case for a share that already exists — the property is not readable
+    anywhere. Unknown is treated as unchanged rather than as false, so a share configured
+    with restrictions on does not report a change on every run that it can never resolve.
 #}
 {% macro diff_share_configuration(desired_config, existing_config) %}
   {% set desired_accounts = desired_config.get('accounts', []) or [] %}
   {% set existing_accounts = existing_config.get('accounts', []) or [] %}
   {% set desired_restrictions = desired_config.get('share_restrictions', false) %}
-  {% set existing_restrictions = existing_config.get('share_restrictions', false) %}
+  {% set existing_restrictions = existing_config.get('share_restrictions', none) %}
 
   {% set desired_normalized = [] %}
   {% for account in desired_accounts %}
@@ -55,6 +60,6 @@
     'accounts_to_add': accounts_to_add,
     'accounts_to_remove': accounts_to_remove,
     'share_restrictions': desired_restrictions,
-    'restrictions_changed': desired_restrictions != existing_restrictions
+    'restrictions_changed': false if existing_restrictions is none else desired_restrictions != existing_restrictions
   }) }}
 {% endmacro %}

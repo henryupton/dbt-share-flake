@@ -118,14 +118,35 @@ class TestNewShareConfiguration:
         assert ctx.statements_matching(r"DESCRIBE SHARE") == []
 
     def test_alter_share_reconciles_an_existing_share(self, ctx, pkg):
+        # The existing consumer set comes from the `to` column of SHOW SHARES.
         ctx.nodes = [make_node("model.p.orders", "orders", {"shares": ["partner_share"]})]
         ctx.vars["snowflake_shares_alter_share"] = True
-        ctx.on_query(r"SHOW SHARES", [{"name": "A.B.PARTNER_SHARE", "kind": "OUTBOUND"}])
+        ctx.on_query(r"SHOW SHARES", [
+            {"name": "A.B.PARTNER_SHARE", "kind": "OUTBOUND", "to": "OLD_ACCT"},
+        ])
         ctx.on_query(r"SHOW GRANTS TO SHARE", [])
-        ctx.on_query(r"DESCRIBE SHARE", [{"kind": "ACCOUNT", "name": "OLD_ACCT"}])
         ctx.grant_role_privileges(ALL_SHARE_PRIVILEGES)
 
         pkg.process_shares({"partner_share": {"accounts": ["ABC12345"]}})
 
         assert "ADD ACCOUNTS = ABC12345" in ctx.sql
         assert "REMOVE ACCOUNTS = OLD_ACCT" in ctx.sql
+
+    def test_alter_share_is_a_noop_when_the_consumer_is_already_attached(self, ctx, pkg):
+        # Previously the existing set always read as empty, so every run re-issued
+        # ADD ACCOUNTS for accounts that were already on the share.
+        ctx.nodes = [make_node("model.p.orders", "orders", {"shares": ["partner_share"]})]
+        ctx.vars["snowflake_shares_alter_share"] = True
+        ctx.on_query(r"SHOW SHARES", [
+            {"name": "A.B.PARTNER_SHARE", "kind": "OUTBOUND", "to": "ABC12345"},
+        ])
+        ctx.on_query(r"SHOW GRANTS TO SHARE", [
+            {"privilege": "USAGE", "granted_on": "DATABASE", "name": "ANALYTICS"},
+            {"privilege": "USAGE", "granted_on": "SCHEMA", "name": "ANALYTICS.PUBLIC"},
+            {"privilege": "SELECT", "granted_on": "TABLE", "name": "ANALYTICS.PUBLIC.ORDERS"},
+        ])
+        ctx.grant_role_privileges(ALL_SHARE_PRIVILEGES)
+
+        pkg.process_shares({"partner_share": {"accounts": ["ABC12345"]}})
+
+        assert ctx.statements_matching(r"ALTER SHARE") == []
