@@ -59,14 +59,6 @@ def agate_table(rows):
     return agate.Table(data, columns, [agate.Text() for _ in columns])
 
 
-def combine(*dicts, **kwargs):
-    """dbt's `combine` filter, used by entrypoint to merge share configs."""
-    merged = {}
-    for d in dicts:
-        merged.update(d or {})
-    merged.update(kwargs)
-    return merged
-
 
 class _FlagsProxy:
     """Reads through to the live stub so tests can set flags after building."""
@@ -203,8 +195,9 @@ def build_package(ctx, with_results=True):
     if not sources:
         raise RuntimeError(f"no macros found under {MACRO_ROOT}")
 
+    # Deliberately a stock Jinja2 environment: registering filters here that real dbt
+    # does not provide lets a macro pass the suite and then fail at render time.
     env = jinja2.Environment(extensions=["jinja2.ext.do"])
-    env.filters["combine"] = combine
 
     package = Package()
 

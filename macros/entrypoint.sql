@@ -40,8 +40,12 @@
   {% endif %}
 
   {# Step 2: Merge configured shares with auto-generated shares #}
+  {# `update` rather than a `combine` filter: `combine` is an Ansible filter, absent from #}
+  {# both Jinja2 (dbt-core) and minijinja (dbt Fusion), so it errors at render time. #}
   {% set configured_shares = var('snowflake_shares', {}) or {} %}
-  {% set all_shares = configured_shares | combine(listing_shares) %}
+  {% set all_shares = {} %}
+  {% do all_shares.update(configured_shares) %}
+  {% do all_shares.update(listing_shares) %}
 
   {# Step 3: Process all shares (configured + auto-generated) #}
   {% if all_shares %}
