@@ -135,7 +135,7 @@ class StubContext:
     def grant_role_privileges(self, privileges=()):
         """Stub the two queries check_required_privileges issues."""
         self.on_query(r"CURRENT_ROLE", [{"current_role": "DBT_ROLE"}])
-        self.on_query(r"SHOW GRANTS TO ROLE", [{"privilege": p} for p in privileges])
+        self.on_query(r"SHOW GRANTS ON ACCOUNT", [{"privilege": p} for p in privileges])
         return self
 
     # -- dbt context callables -------------------------------------------

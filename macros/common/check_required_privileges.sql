@@ -8,10 +8,11 @@
     list: List of missing privileges (empty if all privileges are present)
 
   Description:
-    Queries SHOW GRANTS TO ROLE to check if the current role has all
-    required privileges. Issues warnings for any missing privileges.
-    Filters the query to only check for the specific required privileges
-    for better performance.
+    Queries SHOW GRANTS ON ACCOUNT, filtered to the current role, to check
+    that it holds every required privilege. Issues warnings for any that are
+    missing. Every privilege this package checks is account-level, and the
+    account-scoped SHOW returns only account-level grants, so it stays fast
+    regardless of how many object grants the role holds.
 #}
 {% macro check_required_privileges(required_privileges) %}
   {% if execute %}
@@ -23,10 +24,10 @@
     {% set role_result = run_query(role_query) %}
     {% set current_role = role_result.columns[0].values()[0] %}
 
-    {# Now show grants for that role #}
+    {# Account-level grants only, filtered to the current role #}
     {% set privilege_list = "'" ~ required_privileges | join("', '") ~ "'" %}
     {% set query %}
-      SHOW GRANTS TO ROLE {{ current_role }} ->> SELECT "privilege" FROM $1 WHERE "privilege" IN ({{ privilege_list }})
+      SHOW GRANTS ON ACCOUNT ->> SELECT "privilege" FROM $1 WHERE "grantee_name" = '{{ current_role }}' AND "privilege" IN ({{ privilege_list }})
     {% endset %}
 
     {% set results = run_query(query) %}

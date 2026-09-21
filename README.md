@@ -307,9 +307,10 @@ vars:
   snowflake_listings_check_privileges: true # Check listing privileges (default: true)
 ```
 
-Note that this only inspects privileges granted *directly* to the current role, so a
-role that inherits them through a role hierarchy will warn spuriously. The check is
-advisory: it warns and continues.
+The check reads `SHOW GRANTS ON ACCOUNT` filtered to the current role, so it costs the
+same whether the role holds ten grants or fifty thousand. It only sees privileges granted
+*directly* to the current role, so a role that inherits them through a role hierarchy will
+warn spuriously. The check is advisory: it warns and continues.
 
 ### Alter Operations
 ```yaml
